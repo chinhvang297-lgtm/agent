@@ -120,6 +120,25 @@ class Table(Media):
         )
 
     @staticmethod
+    def _normalize_table_rows(md: str) -> str:
+        """Split a collapsed single-line Markdown table into proper rows.
+
+        PDF parsers often strip newlines so the entire table lands on one line:
+          | A | B | |---|---| | C | D |
+        Within a row, pipes are separated by cell content.  Between rows, two
+        pipes are adjacent (separated only by whitespace), so
+        `(?<=\\|)\\s+(?=\\|)` reliably identifies row boundaries.
+        """
+        import re
+        lines = [l.strip() for l in md.splitlines() if l.strip()]
+        if len(lines) > 1:
+            return md  # already multi-line
+        rows = re.split(r"(?<=\|)\s+(?=\|)", md.strip())
+        if len(rows) <= 1:
+            return md
+        return "\n".join(row.strip() for row in rows)
+
+    @staticmethod
     def _ensure_table_separator(md: str) -> str:
         """Insert a separator row if the Markdown table is missing one.
 
@@ -140,7 +159,8 @@ class Table(Media):
         return "\n".join(lines)
 
     def parse_table(self, image_dir: str):
-        fixed_md = self._ensure_table_separator(self.markdown_content)
+        fixed_md = self._normalize_table_rows(self.markdown_content)
+        fixed_md = self._ensure_table_separator(fixed_md)
         html = markdown(fixed_md)
         soup = BeautifulSoup(html, "html.parser")
         table = soup.find("table")
