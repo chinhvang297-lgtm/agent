@@ -119,10 +119,36 @@ class Table(Media):
             merge_area=data.get("merge_area", None),
         )
 
+    @staticmethod
+    def _ensure_table_separator(md: str) -> str:
+        """Insert a separator row if the Markdown table is missing one.
+
+        Standard Markdown tables require a `|---|---|` row after the header.
+        Without it most renderers (including mistune) emit no <table> tag.
+        """
+        lines = [l for l in md.strip().splitlines() if l.strip()]
+        if len(lines) < 2:
+            return md
+        second = lines[1].strip()
+        # Already has a separator row
+        if second.startswith("|") and set(second.replace("|", "").replace(" ", "")) <= {"-", ":"}:
+            return md
+        # Count columns from the header row
+        cols = max(1, lines[0].count("|") - 1)
+        sep = "| " + " | ".join(["---"] * cols) + " |"
+        lines.insert(1, sep)
+        return "\n".join(lines)
+
     def parse_table(self, image_dir: str):
-        html = markdown(self.markdown_content)
+        fixed_md = self._ensure_table_separator(self.markdown_content)
+        html = markdown(fixed_md)
         soup = BeautifulSoup(html, "html.parser")
         table = soup.find("table")
+        if table is None:
+            raise ValueError(
+                f"Cannot render markdown content as an HTML table. "
+                f"Content preview: {self.markdown_content[:200]!r}"
+            )
         self.cells = []
         for row in table.find_all("tr"):
             self.cells.append(
