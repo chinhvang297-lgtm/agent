@@ -144,10 +144,18 @@ class Table(Media):
 
         Standard Markdown tables require a `|---|---|` row after the header.
         Without it most renderers (including mistune) emit no <table> tag.
+        PDF parsers sometimes split a table into individual rows, leaving a
+        single data row with no header; we add a dummy header in that case.
         """
         lines = [l for l in md.strip().splitlines() if l.strip()]
-        if len(lines) < 2:
+        if len(lines) == 0:
             return md
+        if len(lines) == 1:
+            # Single orphaned data row — prepend a dummy header + separator
+            cols = max(1, lines[0].count("|") - 1)
+            header = "| " + " | ".join([f"Col {i + 1}" for i in range(cols)]) + " |"
+            sep = "| " + " | ".join(["---"] * cols) + " |"
+            return "\n".join([header, sep, lines[0]])
         second = lines[1].strip()
         # Already has a separator row
         if second.startswith("|") and set(second.replace("|", "").replace(" ", "")) <= {"-", ":"}:
