@@ -187,7 +187,7 @@ class Table(Media):
                 image_dir,
                 f"table_{hashlib.md5(str(self.cells).encode()).hexdigest()[:4]}.png",
             )
-        markdown_table_to_image(self.markdown_content, self.path)
+        markdown_table_to_image(fixed_md, self.path)
 
     def parse(self, table_model: Optional[LLM], image_dir: str):
         self.parse_table(image_dir)
