@@ -1,0 +1,55 @@
+name: PUSH-CI
+
+on:
+  push:
+    branches: [ "*" ]
+
+jobs:
+  test:
+    if: github.repository == 'icip-cas/pptagent' || github.repository == 'Force1ess/PPTAgent'
+    runs-on: ubuntu-latest
+
+    env:
+      API_BASE: ${{ secrets.API_BASE }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      LANGUAGE_MODEL: ${{ secrets.LANGUAGE_MODEL }}
+      VISION_MODEL: ${{ secrets.VISION_MODEL }}
+      TEXT_MODEL: ${{ secrets.TEXT_MODEL }}
+
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install LibreOffice
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreoffice poppler-utils
+          libreoffice --version
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+          pip install pytest-asyncio pytest-xdist
+
+      - name: Run tests
+        run: |
+          rm -rf pptagent
+          pytest -v -n 8 test
